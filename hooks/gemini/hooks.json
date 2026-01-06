@@ -1,0 +1,94 @@
+{
+  "description": "Gemini Shadow - ShadowAI mobile notifications for Gemini CLI",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${GEMINI_PLUGIN_ROOT}/scripts/bridge-relay.js\" SessionStart",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${GEMINI_PLUGIN_ROOT}/scripts/bridge-relay.js\" SessionEnd",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${GEMINI_PLUGIN_ROOT}/scripts/bridge-relay.js\" BeforeAgent",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${GEMINI_PLUGIN_ROOT}/scripts/bridge-relay.js\" AfterAgent",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${GEMINI_PLUGIN_ROOT}/scripts/bridge-relay.js\" BeforeTool",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${GEMINI_PLUGIN_ROOT}/scripts/bridge-relay.js\" AfterTool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${GEMINI_PLUGIN_ROOT}/scripts/bridge-relay.js\" Notification",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${GEMINI_PLUGIN_ROOT}/scripts/bridge-relay.js\" UserPromptSubmit",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

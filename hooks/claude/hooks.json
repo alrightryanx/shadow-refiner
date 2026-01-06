@@ -1,0 +1,87 @@
+{
+  "description": "Claude Code Companion - ShadowAI mobile notifications for Claude Code",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "model": "glm-4.7",
+            "prompt": "You are ShadowAegis. Your task is to evaluate and potentially IMPROVE the user's prompt before it reaches the main model. Look at the current directory and recent files. If the prompt is lazy (e.g. 'fix it'), rewrite it into a specific, professional technical instruction. If it is nonsensical, BLOCK it. Otherwise, return it as is.\n\nJSON Output Format:\n{\n  \"action\": \"ALLOW\" | \"BLOCK\",\n  \"modifiedPrompt\": \"string (optional)\",\n  \"reason\": \"string\"\n}",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/user-prompt.ps1\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/permission-request.ps1\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/stop-response.ps1\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/session-stop.ps1\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/notification.ps1\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start.ps1\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/session-end.ps1\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
