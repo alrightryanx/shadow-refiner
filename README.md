@@ -20,7 +20,7 @@ ShadowRefiner operates on the principle of **Aggressive Intent Reconstruction**.
 ShadowRefiner sits as a lightweight Python layer utilizing local inference for maximum privacy and speed.
 
 1.  **Hooks:** Native integrations for `claude-code` and `gemini-cli` intercept traffic.
-2.  **Engine:** Powered by **Local GLM-4 (Ollama)**, performing high-speed "Cognitive Audits."
+2.  **Engine:** Powered by **Local GLM-4 / 4.7 (Ollama)**, performing high-speed "Cognitive Audits."
 3.  **Relay:** Communicates via **ShadowBridge** to provide unified Windows Toast and Android push notifications.
 4.  **Cache:** JSON-based persistence layer ensures 0ms overhead for repeat commands.
 
@@ -34,7 +34,7 @@ pip install -r requirements.txt
 
 ### Requirements:
 *   Python 3.10+
-*   [Ollama](https://ollama.ai/) running locally with `glm4:9b`.
+*   [Ollama](https://ollama.ai/) running locally with `glm-4.7` (recommended) or `glm4:9b`.
 
 ## ⚙️ Configuration
 
