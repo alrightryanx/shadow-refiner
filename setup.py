@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="shadow-aegis",
+    name="shadow-refiner",
     version="1.0.0",
     packages=find_packages(),
     install_requires=[
@@ -9,10 +9,10 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "shadow-aegis=core.engine:main",
+            "shadow-refiner=core.engine:main",
         ],
     },
     author="ShadowAI",
-    description="Universal Quality Guardrail for AI-Human Interaction",
+    description="Universal Intent Reconstruction and Quality Refinement Layer",
     python_requires=">=3.10",
 )

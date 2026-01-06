@@ -8,7 +8,7 @@ import re
 import time
 from pathlib import Path
 
-CONFIG_PATH = Path("C:/shadow/shadow-aegis/config.json")
+CONFIG_PATH = Path("C:/shadow/shadow-refiner/config.json")
 
 # New Policy: Aggressive Reconstruction
 # Only block literal garbage (<15). Improve everything else (<90).
@@ -24,7 +24,7 @@ def load_config():
 CONFIG = load_config()
 
 def get_cache():
-    cache_path = Path(CONFIG.get("paths", {}).get("cache", "C:/shadow/shadow-aegis/core/cache.json"))
+    cache_path = Path(CONFIG.get("paths", {}).get("cache", "C:/shadow/shadow-refiner/core/cache.json"))
     if cache_path.exists():
         try:
             with open(cache_path, 'r') as f:
@@ -33,7 +33,7 @@ def get_cache():
     return {}
 
 def save_cache(cache):
-    cache_path = Path(CONFIG.get("paths", {}).get("cache", "C:/shadow/shadow-aegis/core/cache.json"))
+    cache_path = Path(CONFIG.get("paths", {}).get("cache", "C:/shadow/shadow-refiner/core/cache.json"))
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     with open(cache_path, 'w') as f:
         json.dump(cache, f)
@@ -157,7 +157,7 @@ def main():
     
     if args.mode == "grade":
         if args.notify and result.get("action") != "PASS":
-            show_notification(f"ShadowAegis: {result.get('action')}", result.get("reason", ""), result.get("score", 0))
+            show_notification(f"ShadowRefiner: {result.get('action')}", result.get("reason", ""), result.get("score", 0))
         print(json.dumps(result))
     else:
         print(result)
