@@ -5,124 +5,143 @@ import argparse
 import os
 import urllib.request
 import re
+import time
+from pathlib import Path
 
-OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-MODEL = "glm4:9b"
+CONFIG_PATH = Path("C:/shadow/shadow-aegis/config.json")
 
-# Thresholds
-BLOCK_THRESHOLD = 40  # Scores below this are killed immediately
-IMPROVE_THRESHOLD = 75 # Scores between BLOCK and this are locally auto-expanded
+# New Policy: Aggressive Reconstruction
+# Only block literal garbage (<15). Improve everything else (<90).
+BLOCK_THRESHOLD = 15
+IMPROVE_THRESHOLD = 90
+
+def load_config():
+    if CONFIG_PATH.exists():
+        with open(CONFIG_PATH, 'r') as f:
+            return json.load(f)
+    return {"safe_commands": [], "engine": {"model": "glm4:9b", "ollama_url": "http://127.0.0.1:11434"}}
+
+CONFIG = load_config()
+
+def get_cache():
+    cache_path = Path(CONFIG.get("paths", {}).get("cache", "C:/shadow/shadow-aegis/core/cache.json"))
+    if cache_path.exists():
+        try:
+            with open(cache_path, 'r') as f:
+                return json.load(f)
+        except: pass
+    return {}
+
+def save_cache(cache):
+    cache_path = Path(CONFIG.get("paths", {}).get("cache", "C:/shadow/shadow-aegis/core/cache.json"))
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(cache_path, 'w') as f:
+        json.dump(cache, f)
 
 def grade_content(text, content_type, mode="grade"):
-    """
-    Grades, optimizes, or sanitizes content using local Ollama.
-    Modes: 
-    - grade: Return quality assessment
-    - improve: Return an expanded/better version of the prompt
-    - sanitize: Mask secrets/PII
-    """
+    # 1. Check Skip-List (Instant)
+    if content_type == "prompt" and text.strip().lower() in CONFIG.get("safe_commands", []):
+        return {"score": 100, "action": "PASS", "reason": "Safe command detected", "is_quality": True}
+
+    # 2. Check Cache
+    cache = get_cache()
+    cache_key = f"{content_type}_{mode}_{text}"
+    if cache_key in cache:
+        return cache[cache_key]
+
+    # 3. Local LLM Logic
+    result = call_ollama(text, content_type, mode)
     
+    # Save to Cache
+    if isinstance(result, dict):
+        cache[cache_key] = result
+        save_cache(cache)
+    
+    return result
+
+def call_ollama(text, content_type, mode):
+    url = f"{CONFIG['engine']['ollama_url']}/api/generate"
+    
+    # GATHER CONTEXT
+    cwd = os.getcwd()
+    recent_files = []
+    try:
+        files = [f for f in os.listdir('.') if os.path.isfile(f) and not f.startswith('.')]
+        files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        recent_files = files[:3]
+    except: pass
+
     if mode == "improve":
         prompt = f"""
-        You are an expert Prompt Engineer. Rewrite the following lazy developer prompt into a high-fidelity, specific instruction.
-        Keep the original intent but add necessary technical context and specify clear requirements.
+        You are the Executive Intent Reconstructor. 
+        Expand this "lazy" developer prompt into a high-fidelity instruction.
         
-        Lazy Prompt: "{text}"
+        CONTEXT:
+        - Current Directory: {cwd}
+        - Recent Files: {recent_files}
         
-        Return ONLY the rewritten prompt text. No explanations.
+        LAZY PROMPT: "{text}"
+        
+        INSTRUCTIONS:
+        - Infer the technical goal based on the prompt and context.
+        - If they say "fix it", they likely mean errors in {recent_files}.
+        - If they say "build", they mean the project in {cwd}.
+        - Return ONLY the improved prompt text. No chat.
         """
     elif mode == "sanitize":
-        # Basic regex check first to save time, then LLM for complex cases
-        sanitized = sanitize_regex(text)
-        prompt = f"""
-        Scan this text for API keys, passwords, or credentials. Mask them with [MASKED].
-        If no secrets are found, return the text exactly as is.
-        
-        Text: "{sanitized}"
-        
-        Return ONLY the sanitized text.
-        """
+        prompt = f"Security Audit: Mask API keys/passwords in this text with [MASKED]. Return sanitized text ONLY: '{text}'"
     else: # grade
         prompt = f"""
-        You are the Quality Sentinel for ShadowAI. strictly evaluate this {content_type}:
+        Executive Quality Audit. Evaluate this {content_type}: "{text}"
         
-        "{text}"
+        Rubric:
+        - score < {BLOCK_THRESHOLD}: BLOCK (literal garbage/nonsense)
+        - score < {IMPROVE_THRESHOLD}: IMPROVE (vague or lazy but has intent)
+        - else: PASS (clear and high fidelity)
         
-        {get_rubric(content_type)}
-        
-        Return ONLY a JSON object:
-        {{
-            "score": <int 0-100>,
-            "reason": "<short reason>",
-            "action": "<BLOCK|IMPROVE|PASS>",
-            "is_quality": <boolean>
-        }}
+        Return ONLY JSON: {{"score": 0-100, "reason": "...", "action": "BLOCK|IMPROVE|PASS"}}
         """
-    
+
     payload = {
-        "model": MODEL,
+        "model": CONFIG["engine"]["model"],
         "prompt": prompt,
         "stream": False,
         "format": "json" if mode == "grade" else ""
     }
-    
+
     try:
-        req = urllib.request.Request(OLLAMA_URL)
-        req.add_header('Content-Type', 'application/json')
-        jsondata = json.dumps(payload).encode('utf-8')
-        
-        with urllib.request.urlopen(req, jsondata, timeout=30) as response:
+        req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req, timeout=30) as response:
             res_data = json.loads(response.read().decode('utf-8'))
             output = res_data.get("response", "").strip()
             
             if mode == "grade":
                 try:
-                    # Handle cases where LLM puts JSON in a block
                     json_match = re.search(r'(\{.*\})', output, re.DOTALL)
-                    if json_match:
-                        output = json_match.group(1)
-                    res = json.loads(output)
-                    # Force action based on score if LLM was vague
-                    if res.get("score", 100) < BLOCK_THRESHOLD:
-                        res["action"] = "BLOCK"
-                    elif res.get("score", 100) < IMPROVE_THRESHOLD:
-                        res["action"] = "IMPROVE"
-                    else:
-                        res["action"] = "PASS"
+                    res = json.loads(json_match.group(1)) if json_match else json.loads(output)
+                    score = res.get("score", 100)
+                    if score < BLOCK_THRESHOLD: res["action"] = "BLOCK"
+                    elif score < IMPROVE_THRESHOLD: res["action"] = "IMPROVE"
+                    else: res["action"] = "PASS"
                     return res
                 except:
-                    return {"score": 0, "action": "BLOCK", "reason": "Grader parsing error"}
-            
+                    return {"score": 50, "action": "IMPROVE", "reason": "Format error, fallback to improvement"}
             return output
-
     except Exception as e:
         return {"score": 100, "action": "PASS", "reason": f"Bypass on error: {str(e)}"}
-
-def sanitize_regex(text):
-    # Mask obvious keys (generic pattern)
-    text = re.sub(r'(?i)(api[_-]?key|secret|password|passwd|token)[\s:=]+[a-z0-9_\-\.\~]{16,}', r'\1: [MASKED]', text)
-    return text
-
-def get_rubric(content_type):
-    if content_type == "prompt":
-        return f"Rubric: <{BLOCK_THRESHOLD}=BLOCK (useless), <{IMPROVE_THRESHOLD}=IMPROVE (vague), else PASS."
-    else:
-        return "Rubric: <50=REGENERATE (poor logic/hallucination), else PASS."
 
 def show_notification(title, message, score):
     ps_script = f"""
     [reflection.assembly]::loadwithpartialname('System.Windows.Forms')
     $notification = New-Object System.Windows.Forms.NotifyIcon
     $notification.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -id $pid).Path)
-    $notification.BalloonTipIcon = 'Warning'
+    $notification.BalloonTipIcon = 'Info'
     $notification.BalloonTipText = '{message.replace("'", "''")}'
     $notification.BalloonTipTitle = '{title.replace("'", "''")} (Score: {score})'
     $notification.Visible = $True
-    $notification.ShowBalloonTip(10000)
+    $notification.ShowBalloonTip(5000)
     """
-    try:
-        subprocess.run(["powershell", "-Command", ps_script], capture_output=True)
-    except: pass
+    subprocess.run(["powershell", "-Command", ps_script], capture_output=True)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -130,22 +149,17 @@ def main():
     parser.add_argument("--mode", choices=["grade", "improve", "sanitize"], default="grade")
     parser.add_argument("--notify", action="store_true")
     parser.add_argument("text", nargs="?")
-    
     args = parser.parse_args()
     content = args.text or (not sys.stdin.isatty() and sys.stdin.read())
-            
-    if not content or not content.strip():
-        print(json.dumps({"score": 0, "action": "BLOCK", "reason": "Empty input"}))
-        return
+    if not content: return
 
+    result = grade_content(content, args.type, args.mode)
+    
     if args.mode == "grade":
-        result = grade_content(content, args.type, "grade")
         if args.notify and result.get("action") != "PASS":
             show_notification(f"ShadowAegis: {result.get('action')}", result.get("reason", ""), result.get("score", 0))
         print(json.dumps(result))
     else:
-        # Standard text processing modes
-        result = grade_content(content, args.type, args.mode)
         print(result)
 
 if __name__ == "__main__":
