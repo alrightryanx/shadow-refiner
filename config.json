@@ -15,7 +15,7 @@
     "ls", "dir", "pwd", "cd", "git status", "git log", "npm start", "clear", "cls", "help", "exit"
   ],
   "engine": {
-    "model": "glm4:9b",
+    "model": "glm-4.7",
     "ollama_url": "http://127.0.0.1:11434",
     "timeout": 30
   },
